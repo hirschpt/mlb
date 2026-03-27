@@ -25,20 +25,100 @@ function CriteriaRow({ criteria }) {
   )
 }
 
-function PitcherBox({ pitcher, side }) {
+function PitcherBox({ pitcher, side, savant, gameLog }) {
   const color = pitcher.verdict === 'TARGET' ? 'green'
     : pitcher.verdict === 'FADE' ? 'red'
     : pitcher.verdict === 'INSUFFICIENT_DATA' ? 'amber'
     : 'default'
+
+  const xfipGap = savant?.xfip && pitcher.raw?.era
+    ? parseFloat((savant.xfip - pitcher.raw.era).toFixed(2))
+    : null
+  const gapColor = xfipGap === null ? null
+    : xfipGap > 1 ? 'var(--amber)'
+    : xfipGap < -1 ? 'var(--green)'
+    : 'var(--muted)'
+  const gapLabel = xfipGap === null ? null
+    : xfipGap > 1 ? 'likely lucky'
+    : xfipGap < -1 ? 'likely unlucky'
+    : 'aligned'
 
   return (
     <div className={styles.pitcherBox}>
       <div className={styles.pitcherSide}>{side} SP</div>
       <div className={styles.pitcherName}>{pitcher.name}</div>
       <Pill color={color}>{pitcher.verdict}</Pill>
+
+      {/* Season stats */}
       <div className={styles.pitcherStats}>{pitcher.keyStats}</div>
-      {pitcher.recentForm && (
-        <div className={styles.pitcherRecent}>{pitcher.recentForm}</div>
+
+      {/* Real xFIP + xERA from Baseball Savant */}
+      {savant ? (
+        <>
+          <div className={styles.pitcherStats} style={{ marginTop: 4 }}>
+            <span style={{ color: 'var(--dim)' }}>xFIP: </span>
+            <span style={{ color: 'var(--text)', fontWeight: 500 }}>{savant.xfip ?? '—'}</span>
+            <span style={{ color: 'var(--dim)', margin: '0 6px' }}>·</span>
+            <span style={{ color: 'var(--dim)' }}>xERA: </span>
+            <span style={{ color: 'var(--text)', fontWeight: 500 }}>{savant.xera ?? '—'}</span>
+            {xfipGap !== null && (
+              <span style={{ color: gapColor, marginLeft: 8, fontSize: 10 }}>
+                ({xfipGap > 0 ? '+' : ''}{xfipGap} vs ERA — {gapLabel})
+              </span>
+            )}
+          </div>
+          <div className={styles.pitcherStats} style={{ marginTop: 2 }}>
+            <span style={{ color: 'var(--dim)' }}>GB%: </span>{savant.gbPct ?? '—'}
+            <span style={{ color: 'var(--dim)', margin: '0 4px' }}>·</span>
+            <span style={{ color: 'var(--dim)' }}>HardHit%: </span>{savant.hardHitPct ?? '—'}
+            <span style={{ color: 'var(--dim)', margin: '0 4px' }}>·</span>
+            <span style={{ color: 'var(--dim)' }}>Barrel%: </span>{savant.barrelPct ?? '—'}
+          </div>
+        </>
+      ) : (
+        <div className={styles.pitcherStats} style={{ marginTop: 4, color: 'var(--dim)', fontStyle: 'italic' }}>
+          xFIP/xERA: not in Savant yet (early season)
+        </div>
+      )}
+
+      {/* Real game log — last 5 starts */}
+      {gameLog && gameLog.count > 0 ? (
+        <div style={{ marginTop: 8, borderTop: '0.5px solid var(--border)', paddingTop: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span className={styles.pitcherSide}>
+              L{gameLog.count}: ERA {gameLog.recentEra ?? '—'} · K/9 {gameLog.recentK9 ?? '—'} · QS {gameLog.qualityStarts}/{gameLog.count}
+            </span>
+            <span style={{
+              fontSize: 9, padding: '1px 6px', borderRadius: 4,
+              background: gameLog.trend === 'IMPROVING' ? 'var(--green-bg)' : gameLog.trend === 'DECLINING' ? 'var(--red-bg)' : 'transparent',
+              color: gameLog.trend === 'IMPROVING' ? 'var(--green)' : gameLog.trend === 'DECLINING' ? 'var(--red)' : 'var(--dim)',
+              border: `0.5px solid ${gameLog.trend === 'IMPROVING' ? 'var(--green-border)' : gameLog.trend === 'DECLINING' ? 'var(--red-border)' : 'transparent'}`,
+            }}>{gameLog.trend}</span>
+          </div>
+          {gameLog.starts.map((s, i) => (
+            <div key={i} style={{
+              display: 'flex', gap: 5, fontSize: 10, color: 'var(--muted)',
+              padding: '3px 0', borderBottom: '0.5px solid var(--border)',
+              alignItems: 'center',
+            }}>
+              <span style={{ color: 'var(--dim)', width: 68, flexShrink: 0 }}>{s.date}</span>
+              <span style={{ color: 'var(--dim)', width: 30, flexShrink: 0, fontSize: 9 }}>@{s.opponent}</span>
+              <span style={{ width: 30, flexShrink: 0 }}>{s.ip}ip</span>
+              <span style={{ color: s.er === 0 ? 'var(--green)' : s.er >= 5 ? 'var(--red)' : 'var(--muted)', width: 22, flexShrink: 0 }}>{s.er}er</span>
+              <span style={{ width: 22, flexShrink: 0 }}>{s.k}k</span>
+              <span style={{ width: 22, flexShrink: 0 }}>{s.bb}bb</span>
+              <span style={{
+                marginLeft: 'auto', fontSize: 9, padding: '1px 5px', borderRadius: 3,
+                background: s.quality === 'QS' ? 'var(--green-bg)' : s.quality === 'SHORT' ? 'var(--red-bg)' : 'transparent',
+                color: s.quality === 'QS' ? 'var(--green)' : s.quality === 'SHORT' ? 'var(--red)' : 'var(--dim)',
+              }}>{s.quality}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={styles.pitcherStats} style={{ marginTop: 4, color: 'var(--dim)', fontStyle: 'italic' }}>
+          No starts this season yet
+        </div>
       )}
     </div>
   )
@@ -95,9 +175,9 @@ export default function GameCard({ game }) {
       {/* Pitchers */}
       {game.pitcherAnalysis && (
         <div className={styles.pitchers}>
-          <PitcherBox pitcher={game.pitcherAnalysis.away} side="Away" />
+          <PitcherBox pitcher={game.pitcherAnalysis.away} side="Away" savant={game.awaySavant} gameLog={game.awayGameLog} />
           <div className={styles.pitcherDivider} />
-          <PitcherBox pitcher={game.pitcherAnalysis.home} side="Home" />
+          <PitcherBox pitcher={game.pitcherAnalysis.home} side="Home" savant={game.homeSavant} gameLog={game.homeGameLog} />
         </div>
       )}
 

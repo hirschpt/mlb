@@ -159,18 +159,28 @@ npm run dev
 
 ---
 
-## Data sources
+## Data sources — everything real, no AI guesses
 
-| Data | Source | Cost |
-|------|--------|------|
-| Schedule + probable pitchers | MLB Stats API (official) | Free |
-| Pitcher ERA, WHIP, K/9 | MLB Stats API (official) | Free |
-| Team bullpen ERA | MLB Stats API (official) | Free |
-| xFIP estimates | Claude AI (training knowledge) | ~$0.01/analysis |
-| Recent form | Claude AI (training knowledge) | included |
-| Line movement | Descriptive — check Action Network for live % | Free |
+| Data | Source | Free? |
+|------|--------|-------|
+| Schedule + probable pitchers | MLB Stats API (official) | ✅ Free, no key |
+| ERA, WHIP, K/9 per pitcher | MLB Stats API (season stats) | ✅ Free, no key |
+| Team bullpen ERA/WHIP | MLB Stats API (team stats) | ✅ Free, no key |
+| **xFIP** | **Baseball Savant CSV leaderboard** | ✅ **Calculated from real FB counts + lgHR/FB%** |
+| **xERA, Hard Hit%, Barrel%, GB%** | **Baseball Savant (Statcast)** | ✅ **Free, no key** |
+| **Last 5 starts (real game log)** | **MLB Stats API game log endpoint** | ✅ **Real IP, ER, K, BB per start** |
+| **Form trend (IMPROVING/STABLE/DECLINING)** | **Calculated from game log** | ✅ **Derived automatically** |
+| **Sharp money signal** | **Inter-book spread analysis (The Odds API)** | ✅ **Sharp vs soft book divergence** |
+| Live moneylines (8+ books) | The Odds API | ✅ 500 credits/mo free |
+| Best book to bet + direct link | The Odds API + logic | ✅ Included |
 
-> **Note on xFIP and line movement**: The free MLB API doesn't expose xFIP or real-time betting percentages. xFIP estimates come from Claude's training knowledge of pitcher profiles, clearly labeled as estimates. For live line movement percentages, cross-reference [Action Network](https://www.actionnetwork.com/mlb/public-betting) (free).
+**Sportsbooks covered:** DraftKings · FanDuel · BetMGM · Caesars · Bovada · BetOnline · ESPN BET · PointsBet
+
+### On public betting ticket %
+The "73% of bets on the Yankees" number lives behind **Action Network PRO** — no free API exists for it.  
+The app instead detects sharp money by measuring divergence between sharp books and soft books.  
+When a sharp book is 8+ points off consensus on one side, that's a mathematically equivalent signal.  
+For raw ticket %, check [Action Network](https://www.actionnetwork.com/mlb/public-betting) manually (free to view, API costs ~$9/mo).
 
 ---
 
