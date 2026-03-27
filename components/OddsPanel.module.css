@@ -1,0 +1,220 @@
+/* components/OddsPanel.module.css */
+
+.panel {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin: 12px 0;
+  overflow: hidden;
+}
+
+.summaryBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.summaryLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+}
+
+.bettingSide {
+  font-size: 11px;
+  color: var(--blue);
+  margin-left: 12px;
+}
+
+.toggleBtn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 0;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.toggleBtn:hover { color: var(--text); }
+
+/* Best price row */
+.bestRow {
+  display: flex;
+  align-items: stretch;
+  padding: 12px 14px;
+  gap: 8px;
+}
+
+.bestCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bestCard_target {
+  background: var(--blue-bg);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.alignRight {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.bestCardLabel {
+  font-size: 10px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bestCardOdds {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.bestCardBook {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.overLimit {
+  font-size: 10px;
+  color: var(--red);
+  margin-top: 2px;
+}
+
+/* Consensus center */
+.vsDiv {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.vsLabel {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  margin-bottom: 4px;
+}
+
+.vsAway, .vsHome {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.vsSep {
+  font-size: 10px;
+  color: var(--border2);
+  margin: 1px 0;
+}
+
+/* Color classes */
+.good { color: var(--green); }
+.bad { color: var(--red); }
+.dog { color: var(--green); }
+.fav { color: var(--muted); }
+
+/* Table */
+.tableWrap {
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.table th {
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.table tbody tr:last-child td { border-bottom: none; }
+
+.table tbody tr:hover td { background: var(--bg2); }
+
+.bestRow_tr td { background: rgba(59,130,246,0.05); }
+
+.right { text-align: right; }
+
+.bookName {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.star {
+  color: var(--amber);
+}
+
+.bestCell {
+  font-weight: 600;
+}
+
+.prob {
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.tableNote {
+  padding: 8px 14px;
+  font-size: 10px;
+  color: var(--dim);
+  border-top: 1px solid var(--border);
+}
+
+/* Bet links */
+.betLink {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 3px 8px;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.betLink:hover {
+  color: var(--text);
+  border-color: var(--text);
+}
+
+.betLinkPrimary {
+  color: var(--blue);
+  border-color: var(--blue-border);
+}
+
+.betLinkPrimary:hover {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
