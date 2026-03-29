@@ -189,6 +189,14 @@
   border-color: var(--border);
 }
 
+.criterion_na {
+  background: transparent;
+  color: var(--dim);
+  border-color: var(--border);
+  opacity: 0.45;
+  font-style: italic;
+}
+
 .dot { font-size: 8px; }
 
 /* Details */

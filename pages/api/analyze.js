@@ -13,10 +13,10 @@ DATA SOURCES: MLB Stats API (ERA, WHIP, K/9), Baseball Savant (xFIP calculated f
 
 STRATEGY:
 1. PITCHING EDGE: Fade WHIP>1.30 AND K/9<7. Target WHIP<1.20 AND K/9>9. ERA vs xFIP gap of 1.0+ = lucky (fade) or unlucky (target).
-2. PRICE: goodPrice=false if best available odds worse than -150. Never recommend a bet at -151 or worse.
-3. LINE MOVEMENT: Use the lineMovement.signal in the data. SHARP_AWAY or SHARP_HOME = confirmed signal. NONE = no signal.
+2. PRICE: If real odds data is present in the game block, set goodPrice=true only if best available odds >= -150. If NO odds data is provided for a game, set goodPrice=null (not false) and note "Odds not available — verify price manually before betting." Do NOT write "Odds not configured" or "cannot evaluate price criterion" — just set null and move on.
+3. LINE MOVEMENT: Use the lineMovement.signal in the data. SHARP_AWAY or SHARP_HOME = confirmed signal. NONE = no signal. If no line movement data, set reverseLineMovement=null.
 4. BULLPEN: Edge if ERA gap >= 1.30 runs.
-5. Need 3+ of 4 criteria to recommend BET. Most days = 0-2 bets.
+5. Need 3+ of 4 NON-NULL criteria to recommend BET. Null criteria do not count for or against. Most days = 0-2 bets.
 
 Return ONLY valid JSON, no markdown, no backticks.
 
@@ -33,7 +33,7 @@ Schema:
     "bestOdds": "+125" | null,
     "bestBookUrl": "https://..." | null,
     "oddsNote": "one sentence on odds",
-    "criteriaHit": { "pitchingEdge": bool, "goodPrice": bool, "reverseLineMovement": bool, "bullpenEdge": bool },
+    "criteriaHit": { "pitchingEdge": bool, "goodPrice": bool | null, "reverseLineMovement": bool | null, "bullpenEdge": bool },
     "criteriaCount": 0-4,
     "pitcherAnalysis": {
       "away": { "name": "...", "verdict": "TARGET"|"FADE"|"NEUTRAL"|"INSUFFICIENT_DATA", "keyStats": "ERA: X · WHIP: X · K/9: X · xFIP: X · xERA: X", "eraVsXfip": "ERA X vs xFIP X — lucky/unlucky/aligned", "recentForm": "Last N starts: ERA X, K/9 X, QS N/N — TREND", "recentStarts": "5IP 2ER 7K vs NYY, ..." },

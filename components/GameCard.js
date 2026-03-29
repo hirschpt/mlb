@@ -15,12 +15,17 @@ function CriteriaRow({ criteria }) {
   ]
   return (
     <div className={styles.criteriaRow}>
-      {items.map(({ key, label }) => (
-        <div key={key} className={`${styles.criterion} ${criteria?.[key] ? styles.criterion_met : styles.criterion_miss}`}>
-          <span className={styles.dot}>{criteria?.[key] ? '●' : '○'}</span>
-          {label}
-        </div>
-      ))}
+      {items.map(({ key, label }) => {
+        const val = criteria?.[key]
+        const isNull = val === null || val === undefined
+        const className = `${styles.criterion} ${isNull ? styles.criterion_na : val ? styles.criterion_met : styles.criterion_miss}`
+        return (
+          <div key={key} className={className}>
+            <span className={styles.dot}>{isNull ? '–' : val ? '●' : '○'}</span>
+            {label}{isNull ? ' (N/A)' : ''}
+          </div>
+        )
+      })}
     </div>
   )
 }
