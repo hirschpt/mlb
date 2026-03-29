@@ -197,19 +197,27 @@ export default async function handler(req, res) {
 
     // 4. Claude analysis
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 4000,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMessage }],
     })
 
     const text = response.content.map(b => b.text || '').join('')
-    const clean = text.replace(/```json|```/g, '').trim()
+
+    // Robust JSON extraction: strip markdown fences, then find the outermost {...} block
+    let clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+    const jsonStart = clean.indexOf('{')
+    const jsonEnd = clean.lastIndexOf('}')
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      clean = clean.slice(jsonStart, jsonEnd + 1)
+    }
 
     let analysis
     try {
       analysis = JSON.parse(clean)
     } catch {
+      console.error('Raw Claude response:', text.slice(0, 1000))
       return res.status(500).json({ error: 'Failed to parse Claude response', raw: clean.slice(0, 500) })
     }
 
