@@ -76,10 +76,24 @@ function pitcherBlock(side, pitcher, savant, gameLog) {
   return lines.join('\n')
 }
 
+function formatGameTime(gameTime) {
+  if (!gameTime) return 'TBD ET'
+  try {
+    // MLB API returns ISO strings like "2026-03-29T17:05:00Z"
+    // Ensure it's treated as UTC so timezone conversion is correct
+    const iso = gameTime.endsWith('Z') || gameTime.includes('+') ? gameTime : gameTime + 'Z'
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return 'TBD ET'
+    return d.toLocaleTimeString('en-US', {
+      hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York',
+    }) + ' ET'
+  } catch {
+    return 'TBD ET'
+  }
+}
+
 function buildGameBlock(g, i) {
-  const timeStr = new Date(g.gameTime).toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York',
-  }) + ' ET'
+  const timeStr = formatGameTime(g.gameTime)
 
   const { awayPitcher, homePitcher, awaySavant, homeSavant, awayGameLog, homeGameLog, bullpen, odds, lineMovement } = g.realData
 
@@ -134,15 +148,16 @@ export default async function handler(req, res) {
     const season = parseInt(targetDate.slice(0, 4))
     const oddsApiKey = process.env.ODDS_API_KEY || null
 
-    // 1. All top-level fetches in parallel
-    let games, oddsMap, savantMap
+    // 1. All top-level fetches in parallel — try current season Savant, fall back to prior
+    let games, oddsMap, savantMap, savantMapPrior
     try {
-      ;[games, oddsMap, savantMap] = await Promise.all([
+      ;[games, oddsMap, savantMap, savantMapPrior] = await Promise.all([
         getTodaysGames(targetDate),
         oddsApiKey
           ? getMLBOdds(oddsApiKey).catch(e => { console.warn('Odds API:', e.message); return null })
           : Promise.resolve(null),
-        fetchSavantLeaderboard(season).catch(e => { console.warn('Savant:', e.message); return new Map() }),
+        fetchSavantLeaderboard(season).catch(e => { console.warn('Savant current:', e.message); return new Map() }),
+        fetchSavantLeaderboard(season - 1).catch(e => { console.warn('Savant prior:', e.message); return new Map() }),
       ])
     } catch (e) {
       return res.status(502).json({ error: `MLB API unavailable: ${e.message}` })
@@ -160,22 +175,28 @@ export default async function handler(req, res) {
     const enriched = await Promise.all(games.map(async (game) => {
       const [
         awayPitcherStats, homePitcherStats,
+        awayPitcherPriorStats, homePitcherPriorStats,
         awayBullpen, homeBullpen,
         awayGameLog, homeGameLog,
       ] = await Promise.all([
-        game.away.pitcher?.id ? getPitcherSeasonStats(game.away.pitcher.id) : null,
-        game.home.pitcher?.id ? getPitcherSeasonStats(game.home.pitcher.id) : null,
+        game.away.pitcher?.id ? getPitcherSeasonStats(game.away.pitcher.id, season) : null,
+        game.home.pitcher?.id ? getPitcherSeasonStats(game.home.pitcher.id, season) : null,
+        game.away.pitcher?.id ? getPitcherSeasonStats(game.away.pitcher.id, season - 1) : null,
+        game.home.pitcher?.id ? getPitcherSeasonStats(game.home.pitcher.id, season - 1) : null,
         getTeamBullpenStats(game.away.teamId),
         getTeamBullpenStats(game.home.teamId),
         game.away.pitcher?.id ? getPitcherGameLog(game.away.pitcher.id, season) : null,
         game.home.pitcher?.id ? getPitcherGameLog(game.home.pitcher.id, season) : null,
       ])
 
-      const awayPitcher = evaluatePitcher(awayPitcherStats, game.away.pitcher?.name)
-      const homePitcher = evaluatePitcher(homePitcherStats, game.home.pitcher?.name)
+      const awayPitcher = evaluatePitcher(awayPitcherStats, game.away.pitcher?.name, awayPitcherPriorStats)
+      const homePitcher = evaluatePitcher(homePitcherStats, game.home.pitcher?.name, homePitcherPriorStats)
       const bullpen = evaluateBullpen(awayBullpen, homeBullpen)
-      const awaySavant = game.away.pitcher?.id ? (savantMap.get(String(game.away.pitcher.id)) || null) : null
-      const homeSavant = game.home.pitcher?.id ? (savantMap.get(String(game.home.pitcher.id)) || null) : null
+
+      // Use current season Savant; fall back to prior if empty
+      const activeSavant = savantMap.size > 0 ? savantMap : savantMapPrior
+      const awaySavant = game.away.pitcher?.id ? (activeSavant.get(String(game.away.pitcher.id)) || null) : null
+      const homeSavant = game.home.pitcher?.id ? (activeSavant.get(String(game.home.pitcher.id)) || null) : null
       const odds = oddsMap ? findOddsForGame(oddsMap, game.away.team, game.home.team) : null
       const lineMovement = odds ? analyzeLineMovement(odds) : null
 
@@ -198,21 +219,19 @@ export default async function handler(req, res) {
     // 4. Claude analysis
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 16000, // full 15-game slate needs ~8k tokens; 16k gives headroom
+      max_tokens: 16000,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMessage }],
     })
 
     const text = response.content.map(b => b.text || '').join('')
 
-    // Check if Claude hit the token limit mid-response
-    const stopReason = response.stop_reason
-    if (stopReason === 'max_tokens') {
-      console.error('Claude hit max_tokens limit — response truncated. Raw:', text.slice(0, 500))
-      return res.status(500).json({ error: 'Claude response was truncated (too many games). Try analyzing fewer games or a specific date with fewer matchups.', stopReason })
+    if (response.stop_reason === 'max_tokens') {
+      console.error('Claude hit max_tokens — response truncated. Raw:', text.slice(0, 500))
+      return res.status(500).json({ error: 'Claude response truncated — too many games. Try a specific date with fewer matchups.' })
     }
 
-    // Strip markdown fences, then extract outermost {...} block
+    // Robust JSON extraction: strip markdown fences, find outermost {...}
     let clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
     const jsonStart = clean.indexOf('{')
     const jsonEnd = clean.lastIndexOf('}')
@@ -226,7 +245,7 @@ export default async function handler(req, res) {
     } catch (parseErr) {
       console.error('Parse error:', parseErr.message)
       console.error('Raw Claude response:', text.slice(0, 1000))
-      return res.status(500).json({ error: 'Failed to parse Claude response', raw: clean.slice(0, 500), stopReason })
+      return res.status(500).json({ error: 'Failed to parse Claude response', raw: clean.slice(0, 500), stopReason: response.stop_reason })
     }
 
     // 5. Attach raw real data to each game for UI rendering
@@ -247,8 +266,15 @@ export default async function handler(req, res) {
 
     analysis.oddsAvailable = !!oddsMap
     analysis.savantAvailable = savantMap.size > 0
+    analysis.savantFallback = savantMap.size === 0 && savantMapPrior.size > 0
+    analysis.savantSeason = savantMap.size > 0 ? season : (savantMapPrior.size > 0 ? season - 1 : null)
+    analysis.oddsConfigured = !!oddsApiKey
     analysis.analysisDate = targetDate
-    analysis.dataSource = ['MLB Stats API', savantMap.size > 0 ? 'Baseball Savant (xFIP/xERA)' : null, oddsMap ? 'The Odds API' : null].filter(Boolean).join(' · ')
+    analysis.dataSource = [
+      'MLB Stats API',
+      savantMap.size > 0 ? `Baseball Savant ${season}` : savantMapPrior.size > 0 ? `Baseball Savant ${season - 1} (prior season fallback)` : 'Savant unavailable',
+      oddsMap ? 'The Odds API' : oddsApiKey ? 'Odds API (failed)' : 'Odds API (no key)',
+    ].join(' · ')
 
     return res.status(200).json(analysis)
   } catch (err) {
