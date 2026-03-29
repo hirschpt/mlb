@@ -198,27 +198,35 @@ export default async function handler(req, res) {
     // 4. Claude analysis
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
+      max_tokens: 16000, // full 15-game slate needs ~8k tokens; 16k gives headroom
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMessage }],
     })
 
     const text = response.content.map(b => b.text || '').join('')
 
-    // Robust JSON extraction: strip markdown fences, then find the outermost {...} block
+    // Check if Claude hit the token limit mid-response
+    const stopReason = response.stop_reason
+    if (stopReason === 'max_tokens') {
+      console.error('Claude hit max_tokens limit — response truncated. Raw:', text.slice(0, 500))
+      return res.status(500).json({ error: 'Claude response was truncated (too many games). Try analyzing fewer games or a specific date with fewer matchups.', stopReason })
+    }
+
+    // Strip markdown fences, then extract outermost {...} block
     let clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
     const jsonStart = clean.indexOf('{')
     const jsonEnd = clean.lastIndexOf('}')
-    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+    if (jsonStart !== -1 && jsonEnd > jsonStart) {
       clean = clean.slice(jsonStart, jsonEnd + 1)
     }
 
     let analysis
     try {
       analysis = JSON.parse(clean)
-    } catch {
+    } catch (parseErr) {
+      console.error('Parse error:', parseErr.message)
       console.error('Raw Claude response:', text.slice(0, 1000))
-      return res.status(500).json({ error: 'Failed to parse Claude response', raw: clean.slice(0, 500) })
+      return res.status(500).json({ error: 'Failed to parse Claude response', raw: clean.slice(0, 500), stopReason })
     }
 
     // 5. Attach raw real data to each game for UI rendering
